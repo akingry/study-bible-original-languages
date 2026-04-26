@@ -38,18 +38,39 @@ function verseToPassage(v, maculaWords){
   for(let i=0;i<words.length;i++) english.push(['e'+i,words[i]]);
   if(maculaWords && maculaWords.length){
     const strongToEnglish={};
-    (v.strongs||[]).forEach((s,i)=>{ strongToEnglish[String(Number(s))]='e'+Math.min(i,Math.max(0,words.length-1)); });
+    const strongs=(v.strongs||[]).map(s=>String(Number(s))).filter(Boolean);
+    strongs.forEach((s,i)=>{
+      const idx=strongs.length>1 ? Math.round(i*(Math.max(0,words.length-1))/(strongs.length-1)) : 0;
+      const eid='e'+Math.min(idx,Math.max(0,words.length-1));
+      (strongToEnglish[s] ||= []).push(eid);
+    });
     maculaWords.forEach((w,i)=>{
       const oid='o'+i;
-      const gloss=[w.g, w.tr?('translit: '+w.tr):'', w.l?('lemma: '+w.l):'', w.s?('Strong: '+(isOT(v)?'H':'G')+w.s):'', w.m?('morph: '+w.m):''].filter(Boolean).join(' ? ');
-      original.push([oid, w.t || '?', gloss]);
-      const eid=strongToEnglish[String(Number(w.s))];
-      if(eid){ links[eid]=(links[eid]||[]).concat(oid); links[oid]=(links[oid]||[]).concat(eid); }
+      const parts=[];
+      if(w.g) parts.push('Gloss: '+w.g);
+      if(w.tr) parts.push('Transliteration: '+w.tr);
+      if(w.l) parts.push('Lemma: '+w.l);
+      if(w.s) parts.push('Strong: '+(isOT(v)?'H':'G')+w.s);
+      if(w.m) parts.push('Morphology: '+w.m);
+      original.push([oid, w.t || '', parts.join(' | ')]);
+      const eids=strongToEnglish[String(Number(w.s))] || [];
+      eids.forEach(eid=>{ links[eid]=(links[eid]||[]).concat(oid); links[oid]=(links[oid]||[]).concat(eid); });
     });
+    // Fallback: every English token should visibly connect to something.
+    // If Strong's matching misses an article/preposition/punctuation token, map it to the nearest original word by position.
+    for(let i=0;i<words.length;i++){
+      const eid='e'+i;
+      if(!links[eid] || !links[eid].length){
+        const oi=words.length>1 ? Math.round(i*(Math.max(0,maculaWords.length-1))/(words.length-1)) : 0;
+        const oid='o'+Math.min(oi,Math.max(0,maculaWords.length-1));
+        links[eid]=[oid];
+        links[oid]=(links[oid]||[]).concat(eid);
+      }
+    }
   } else {
     original.push(['s0','Original-language words are still loading or unavailable for this verse.','']);
   }
-  return {ref:v.ref, lang:isOT(v)?'hebrew':'greek', english, original, links, note:maculaWords?'Original-language words from MACULA Hebrew/Greek; ASV links use matching Strong?s numbers where available.':'No MACULA original-language word file loaded for this verse yet.'};
+  return {ref:v.ref, lang:isOT(v)?'hebrew':'greek', english, original, links, note:maculaWords?'Original-language words from MACULA Hebrew/Greek. Strong number matches are used first; nearby-word fallback fills any gaps.':'No MACULA original-language word file loaded for this verse yet.'};
 }
 function render(p){$('gloss').classList.remove('show'); current=p; $('engRef').textContent=p.ref; $('origRef').textContent=p.ref+' · '+(p.lang==='hebrew'?'Hebrew/OT':'Greek/NT'); $('original').className='verse '+(p.lang==='hebrew'?'hebrew':'greek'); $('english').innerHTML=p.english.map(([id,t])=>`<span class="w" data-id="${esc(id)}">${esc(t)}</span>`).join(' '); $('original').innerHTML=p.original.map(([id,t,g])=>`<span class="w" data-id="${esc(id)}" data-gloss="${esc(g||'')}">${esc(t)}</span>`).join(' '); document.querySelectorAll('.w').forEach(el=>el.onclick=()=>selectWord(el.dataset.id));}
 function byId(id){return document.querySelector('[data-id="'+String(id).replace(/"/g,'\\"')+'"]')}
