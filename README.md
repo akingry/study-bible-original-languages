@@ -1,21 +1,13 @@
-﻿# Original Language Study Bible
+# ASV Study Bible
 
-A mobile-friendly HTML study Bible prototype.
+Mobile-friendly public-domain ASV study Bible prototype.
 
-- English/NASB layer on top
-- Hebrew or Greek original language on bottom
-- Tap/click a word in either half to highlight linked words in both halves
-- Supports importing aligned JSON files
+Features:
 
-## Copyright note
+- All ASV verses bundled locally for GitHub Pages use
+- Reference lookup, e.g. `John 3:16`, `Psalm 23`
+- Search across all ASV verses
+- Tap/click English words to highlight linked lexical numbers where available
+- Demo Hebrew/Greek word alignment for Genesis 1:1 and John 1:1
 
-The full NASB text is copyrighted and is not bundled in this public prototype. To use NASB, import a licensed aligned JSON file using the same schema as the demo data in `index.html`.
-
-## Run locally
-
-```powershell
-cd D:\OC\studyBible
-python -m http.server 8770
-```
-
-Then open `http://localhost:8770/`.
+The bundled ASV text is public domain. Broader Hebrew/Greek word-form alignment still needs a public aligned source.
