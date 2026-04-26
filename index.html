@@ -40,7 +40,7 @@ function verseToPassage(v, maculaWords){
     const strongToEnglish={};
     const strongs=(v.strongs||[]).map(s=>String(Number(s))).filter(Boolean);
     strongs.forEach((s,i)=>{
-      const idx=strongs.length>1 - Math.round(i*(Math.max(0,words.length-1))/(strongs.length-1)) : 0;
+      const idx=strongs.length>1 ? Math.round(i*(Math.max(0,words.length-1))/(strongs.length-1)) : 0;
       const eid='e'+Math.min(idx,Math.max(0,words.length-1));
       (strongToEnglish[s] ||= []).push(eid);
     });
@@ -61,7 +61,7 @@ function verseToPassage(v, maculaWords){
     for(let i=0;i<words.length;i++){
       const eid='e'+i;
       if(!links[eid] || !links[eid].length){
-        const oi=words.length>1 - Math.round(i*(Math.max(0,maculaWords.length-1))/(words.length-1)) : 0;
+        const oi=words.length>1 ? Math.round(i*(Math.max(0,maculaWords.length-1))/(words.length-1)) : 0;
         const oid='o'+Math.min(oi,Math.max(0,maculaWords.length-1));
         links[eid]=[oid];
         links[oid]=(links[oid]||[]).concat(eid);
@@ -110,7 +110,7 @@ async function go(ref, sync=true){
   $('refInput').value=v.ref;
   if(sync) syncSelectors(v);
   render(verseToPassage(v,null));
-  $('status').textContent='Loading MACULA original-language words for '+v.ref+'?';
+  $('status').textContent='Loading MACULA original-language words for '+v.ref+'...';
   try{
     const bookData=await loadOriginalBook(v.book);
     const maculaWords=bookData&&bookData.verses[`${v.c}:${v.v}`];
