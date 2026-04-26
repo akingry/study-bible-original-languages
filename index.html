@@ -22,7 +22,7 @@
   <div id="results" class="results"></div>
   <div class="note">Top: ASV English. Bottom: Hebrew/Greek original words with anglicized transliteration. Tap a word to see its original-language meaning below.</div><div id="status" class="note">Loading ASV data…</div><div id="wordInfo" class="word-info"></div>
 </header>
-<main><section class="english"><div class="section-title">ASV English</div><div id="engRef" class="ref"></div><div id="english" class="verse"></div></section><section class="original"><div class="section-title">Original language / lexical links</div><div id="origRef" class="ref"></div><div id="original" class="verse"></div></section></main><div id="gloss" class="gloss"></div>
+<main><section class="english"><div class="section-title">ASV English</div><div id="engRef" class="ref"></div><div id="english" class="verse"></div></section><section class="original"><div class="section-title">Original language / lexical links</div><div id="origRef" class="ref"></div><div id="original" class="verse"></div></section></main>
 <script>
 window.onerror=(m,s,l)=>{document.getElementById('status').textContent='JavaScript error: '+m+' at line '+l};
 const $=id=>document.getElementById(id); let ASV=[], byRef=new Map(), current=null, originalIndex=new Map(), originalCache={};
@@ -79,7 +79,7 @@ function verseToPassage(v, maculaWords){
   }
   return {ref:v.ref, lang:isOT(v)?'hebrew':'greek', english, original, links, note:maculaWords?'Original-language words from MACULA Hebrew/Greek. English links use per-word Strong tags from the ASV source; untagged function words use an approximate nearby-word fallback.':'No MACULA original-language word file loaded for this verse yet.'};
 }
-function render(p){$('gloss').classList.remove('show'); current=p; $('engRef').textContent=p.ref; $('origRef').textContent=p.ref+' - '+(p.lang==='hebrew'?'Hebrew/OT':'Greek/NT'); $('original').className='verse '+(p.lang==='hebrew'?'hebrew':'greek'); $('english').innerHTML=p.english.map(([id,t])=>`<span class="w" data-id="${esc(id)}">${esc(t)}</span>`).join(' '); $('original').innerHTML=p.original.map(([id,t,g,tr])=>{const body=tr?`<span class="orig-token"><span class="script">${esc(t)}</span><span class="translit">${esc(tr)}</span></span>`:esc(t); return `<span class="w" data-id="${esc(id)}" data-script="${esc(t||'')}" data-translit="${esc(tr||'')}" data-gloss="${esc(g||'')}">${body}</span>`;}).join(' '); document.querySelectorAll('.w').forEach(el=>el.onclick=()=>selectWord(el.dataset.id));}
+function render(p){current=p; $('engRef').textContent=p.ref; $('origRef').textContent=p.ref+' - '+(p.lang==='hebrew'?'Hebrew/OT':'Greek/NT'); $('original').className='verse '+(p.lang==='hebrew'?'hebrew':'greek'); $('english').innerHTML=p.english.map(([id,t])=>`<span class="w" data-id="${esc(id)}">${esc(t)}</span>`).join(' '); $('original').innerHTML=p.original.map(([id,t,g,tr])=>{const body=tr?`<span class="orig-token"><span class="script">${esc(t)}</span><span class="translit">${esc(tr)}</span></span>`:esc(t); return `<span class="w" data-id="${esc(id)}" data-script="${esc(t||'')}" data-translit="${esc(tr||'')}" data-gloss="${esc(g||'')}">${body}</span>`;}).join(' '); document.querySelectorAll('.w').forEach(el=>el.onclick=()=>selectWord(el.dataset.id));}
 function byId(id){return document.querySelector('[data-id="'+String(id).replace(/"/g,'\\"')+'"]')}
 function selectWord(id){
   const p=current, linked=new Set([id,...((p.links&&p.links[id])||[])]);
@@ -99,8 +99,6 @@ function selectWord(id){
   const html=`<div class="head">${esc(headLabel)}</div><div class="small">Original-language meaning:</div>${meaningRows}<div class="small">Linked: ${esc(linkedText||'none')}</div>`;
   $('wordInfo').innerHTML=html;
   $('wordInfo').classList.add('show');
-  $('gloss').innerHTML=html+`<div class="small">${esc(p.note||'')}</div>`;
-  $('gloss').classList.add('show');
 }
 function slugBook(book){return book.toLowerCase().replace(/ /g,'-')}
 function sleep(ms){return new Promise(resolve=>setTimeout(resolve,ms));}
