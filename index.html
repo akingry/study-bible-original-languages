@@ -9,7 +9,7 @@
     *{box-sizing:border-box} html,body{margin:0;min-height:100%;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif} body{display:flex;flex-direction:column}
     header{position:sticky;top:0;z-index:10;background:rgba(7,16,31,.95);backdrop-filter:blur(14px);border-bottom:1px solid var(--line);padding:10px 12px;display:grid;gap:8px}
     h1{margin:0;font-size:18px}.bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap}input,select,button{border:1px solid var(--line);background:#17243a;color:var(--text);border-radius:12px;padding:10px;font-weight:650}input{min-width:150px;flex:1}select{max-width:100%;}button:active{transform:translateY(1px)}.note{color:var(--muted);font-size:12px;line-height:1.35}
-    main{flex:1;display:grid;grid-template-rows:1fr 1fr;min-height:calc(100vh - 170px)}section{overflow:auto;padding:18px 16px 90px}section+section{border-top:2px solid var(--line);background:var(--panel2)}.section-title{color:var(--muted);text-transform:uppercase;letter-spacing:.12em;font-size:11px;margin:0 0 12px}.ref{color:var(--accent2);font-weight:750;margin-bottom:10px}.verse{font-size:clamp(21px,4.8vw,34px);line-height:1.9}.original .verse{font-size:clamp(18px,4.7vw,30px)}.hebrew{direction:rtl;text-align:right;font-family:"SBL Hebrew","Ezra SIL","Times New Roman",serif}.greek{font-family:"SBL Greek","Times New Roman",serif}.w{display:inline-block;margin:.08em .08em;padding:.02em .16em;border-radius:.32em;cursor:pointer;transition:background .12s,box-shadow .12s,color .12s}.w:hover{background:rgba(115,210,255,.16)}.w.active{background:var(--accent);color:#1b1400;box-shadow:0 0 0 3px rgba(255,209,102,.22)}.w.linked{background:var(--linked)}.gloss{position:fixed;left:12px;right:12px;bottom:12px;z-index:20;background:rgba(16,27,46,.96);border:1px solid var(--line);border-radius:18px;padding:12px 14px;box-shadow:0 12px 40px rgba(0,0,0,.35);display:none}.gloss.show{display:block}.gloss b{color:var(--accent)}.small{color:var(--muted);font-size:12px;margin-top:4px}.results{max-height:28vh;overflow:auto;border-top:1px solid var(--line);padding-top:6px;display:none}.result{display:block;width:100%;text-align:left;margin:4px 0;background:#101b2e;color:var(--text);font-weight:500}.result b{color:var(--accent2)}
+    main{flex:1;display:grid;grid-template-rows:1fr 1fr;min-height:calc(100vh - 170px)}section{overflow:auto;padding:18px 16px 90px}section+section{border-top:2px solid var(--line);background:var(--panel2)}.section-title{color:var(--muted);text-transform:uppercase;letter-spacing:.12em;font-size:11px;margin:0 0 12px}.ref{color:var(--accent2);font-weight:750;margin-bottom:10px}.verse{font-size:clamp(21px,4.8vw,34px);line-height:1.9}.original .verse{font-size:clamp(18px,4.7vw,30px)}.hebrew{direction:rtl;text-align:right;font-family:"SBL Hebrew","Ezra SIL","Times New Roman",serif}.greek{font-family:"SBL Greek","Times New Roman",serif}.w{display:inline-block;margin:.08em .08em;padding:.02em .16em;border-radius:.32em;cursor:pointer;transition:background .12s,box-shadow .12s,color .12s}.w:hover{background:rgba(115,210,255,.16)}.w.active{background:var(--accent);color:#1b1400;box-shadow:0 0 0 3px rgba(255,209,102,.22)}.w.linked{background:var(--linked)}.gloss{position:fixed;left:12px;right:12px;bottom:12px;z-index:20;background:rgba(16,27,46,.96);border:1px solid var(--line);border-radius:18px;padding:12px 14px;box-shadow:0 12px 40px rgba(0,0,0,.35);display:none}.gloss.show{display:block}.gloss b{color:var(--accent)}.small{color:var(--muted);font-size:12px;margin-top:4px}.results{max-height:28vh;overflow:auto;border-top:1px solid var(--line);padding-top:6px;display:none}.result{display:block;width:100%;text-align:left;margin:4px 0;background:#101b2e;color:var(--text);font-weight:500}.result b{color:var(--accent2)}.word-info{display:none;background:rgba(255,255,255,.06);border:1px solid var(--line);border-radius:14px;padding:10px 12px;font-size:14px;line-height:1.45}.word-info.show{display:block}.word-info .head{color:var(--accent);font-weight:800;margin-bottom:4px}.word-info .meaning{margin:.35em 0}.word-info .meaning b{color:var(--accent2)}
     @media(min-width:900px){main{grid-template-columns:1fr 1fr;grid-template-rows:1fr}section+section{border-top:0;border-left:2px solid var(--line)}}
   </style>
 </head>
@@ -80,14 +80,18 @@ function selectWord(id){
   document.querySelectorAll('.w').forEach(el=>{el.classList.toggle('active',el.dataset.id===id);el.classList.toggle('linked',linked.has(el.dataset.id)&&el.dataset.id!==id)});
   const el=byId(id);
   const linkedEls=[...linked].filter(x=>x!==id).map(x=>byId(x)).filter(Boolean);
-  const originalLinked=linkedEls.filter(e=>e.dataset.id && (e.dataset.id.startsWith('o') || e.dataset.id.startsWith('h') || e.dataset.id.startsWith('g') || e.dataset.id.startsWith('s')));
-  const otherLinked=linkedEls.filter(e=>!originalLinked.includes(e));
-  const meaningRows=(originalLinked.length?originalLinked:[el]).filter(Boolean).map(e=>{
-    const desc=e.dataset.gloss||'';
-    return `<div><b>${esc(e.textContent)}</b>${desc?` - ${esc(desc)}`:''}</div>`;
-  }).join('');
+  const isOrig=e=>e&&e.dataset.id&&(e.dataset.id.startsWith('o')||e.dataset.id.startsWith('h')||e.dataset.id.startsWith('g')||e.dataset.id.startsWith('s'));
+  const originalLinked=linkedEls.filter(isOrig);
+  const originals=(originalLinked.length?originalLinked:(isOrig(el)?[el]:[]));
+  const meaningRows=originals.map(e=>{
+    const desc=e.dataset.gloss||'No meaning/gloss available for this original word.';
+    return `<div class="meaning"><b>${esc(e.textContent)}</b><br>${esc(desc)}</div>`;
+  }).join('') || '<div class="meaning">No linked original-language meaning found for this word.</div>';
   const linkedText=linkedEls.map(e=>e.textContent).filter(Boolean).join(', ');
-  $('gloss').innerHTML=`<b>${esc(el?.textContent||id)}</b>${meaningRows?`<div class="small">Original-language meaning:</div>${meaningRows}`:''}<div class="small">Linked: ${esc(linkedText||'none')}</div><div class="small">${esc(p.note||'')}</div>`;
+  const html=`<div class="head">${esc(el?.textContent||id)}</div><div class="small">Original-language meaning:</div>${meaningRows}<div class="small">Linked: ${esc(linkedText||'none')}</div>`;
+  $('wordInfo').innerHTML=html;
+  $('wordInfo').classList.add('show');
+  $('gloss').innerHTML=html+`<div class="small">${esc(p.note||'')}</div>`;
   $('gloss').classList.add('show');
 }
 function slugBook(book){return book.toLowerCase().replace(/ /g,'-')}
