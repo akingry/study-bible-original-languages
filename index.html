@@ -33,7 +33,24 @@ const aligned={
 function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function normRef(s){return s.trim().replace(/\s+/g,' ').replace(/\s*:\s*/g,':').replace(/^(\d)\s+/, '$1 ')}
 function isOT(v){return v.b<=39}
-function verseToPassage(v){if(aligned[v.ref]) return aligned[v.ref]; const words=(v.text.match(/\S+/g)||[]); const english=[], original=[], links={}; const n=Math.max(words.length,v.strongs.length); for(let i=0;i<words.length;i++) english.push(['e'+i,words[i]]); for(let i=0;i<v.strongs.length;i++){const prefix=isOT(v)?'H':'G', oid='s'+i, eid='e'+Math.min(i,Math.max(0,words.length-1)); original.push([oid,prefix+v.strongs[i],prefix+v.strongs[i]+' Strong’s lexical number']); links[eid]=(links[eid]||[]).concat(oid); links[oid]=[eid];} if(!original.length) original.push(['s0','No Strong’s numbers available for this verse.','']); return {ref:v.ref,lang:isOT(v)?'hebrew':'greek',english,original,links,note:'ASV public-domain text with linked Strong’s lexical numbers. Full Hebrew/Greek word forms need a separate aligned source.'}}
+function verseToPassage(v, maculaWords){
+  const words=(v.text.match(/\S+/g)||[]), english=[], original=[], links={};
+  for(let i=0;i<words.length;i++) english.push(['e'+i,words[i]]);
+  if(maculaWords && maculaWords.length){
+    const strongToEnglish={};
+    (v.strongs||[]).forEach((s,i)=>{ strongToEnglish[String(Number(s))]='e'+Math.min(i,Math.max(0,words.length-1)); });
+    maculaWords.forEach((w,i)=>{
+      const oid='o'+i;
+      const gloss=[w.g, w.tr?('translit: '+w.tr):'', w.l?('lemma: '+w.l):'', w.s?('Strong: '+(isOT(v)?'H':'G')+w.s):'', w.m?('morph: '+w.m):''].filter(Boolean).join(' ? ');
+      original.push([oid, w.t || '?', gloss]);
+      const eid=strongToEnglish[String(Number(w.s))];
+      if(eid){ links[eid]=(links[eid]||[]).concat(oid); links[oid]=(links[oid]||[]).concat(eid); }
+    });
+  } else {
+    original.push(['s0','Original-language words are still loading or unavailable for this verse.','']);
+  }
+  return {ref:v.ref, lang:isOT(v)?'hebrew':'greek', english, original, links, note:maculaWords?'Original-language words from MACULA Hebrew/Greek; ASV links use matching Strong?s numbers where available.':'No MACULA original-language word file loaded for this verse yet.'};
+}
 function render(p){$('gloss').classList.remove('show'); current=p; $('engRef').textContent=p.ref; $('origRef').textContent=p.ref+' · '+(p.lang==='hebrew'?'Hebrew/OT':'Greek/NT'); $('original').className='verse '+(p.lang==='hebrew'?'hebrew':'greek'); $('english').innerHTML=p.english.map(([id,t])=>`<span class="w" data-id="${esc(id)}">${esc(t)}</span>`).join(' '); $('original').innerHTML=p.original.map(([id,t,g])=>`<span class="w" data-id="${esc(id)}" data-gloss="${esc(g||'')}">${esc(t)}</span>`).join(' '); document.querySelectorAll('.w').forEach(el=>el.onclick=()=>selectWord(el.dataset.id));}
 function byId(id){return document.querySelector('[data-id="'+String(id).replace(/"/g,'\\"')+'"]')}
 function selectWord(id){const p=current, linked=new Set([id,...((p.links&&p.links[id])||[])]); for(const [k,a] of Object.entries(p.links||{})) if(a.includes(id)) linked.add(k); document.querySelectorAll('.w').forEach(el=>{el.classList.toggle('active',el.dataset.id===id);el.classList.toggle('linked',linked.has(el.dataset.id)&&el.dataset.id!==id)}); const el=byId(id), mates=[...linked].filter(x=>x!==id).map(x=>byId(x)?.textContent).filter(Boolean).join(', '); $('gloss').innerHTML=`<b>${esc(el?.textContent||id)}</b>${el?.dataset.gloss?`<div>${esc(el.dataset.gloss)}</div>`:''}<div class="small">Linked: ${esc(mates||'none')}</div><div class="small">${esc(p.note||'')}</div>`; $('gloss').classList.add('show')}
