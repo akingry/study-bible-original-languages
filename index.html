@@ -33,6 +33,17 @@ const aligned={
 function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function normRef(s){return s.trim().replace(/\s+/g,' ').replace(/\s*:\s*/g,':').replace(/^(\d)\s+/, '$1 ')}
 function isOT(v){return v.b<=39}
+function greekToLatin(text){
+  const map={
+    913:'A',914:'B',915:'G',916:'D',917:'E',918:'Z',919:'E',920:'Th',921:'I',922:'K',923:'L',924:'M',925:'N',926:'X',927:'O',928:'P',929:'R',931:'S',932:'T',933:'Y',934:'Ph',935:'Ch',936:'Ps',937:'O',
+    945:'a',946:'b',947:'g',948:'d',949:'e',950:'z',951:'e',952:'th',953:'i',954:'k',955:'l',956:'m',957:'n',958:'x',959:'o',960:'p',961:'r',962:'s',963:'s',964:'t',965:'y',966:'ph',967:'ch',968:'ps',969:'o'
+  };
+  return Array.from(text||'').map(ch=>{
+    const base=ch.normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+    const cp=base.codePointAt(0);
+    return map[cp] || (/\s/.test(ch)?' ':ch);
+  }).join('').replace(/[^A-Za-z0-9 .,'-]/g,'');
+}
 function verseToPassage(v, maculaWords){
   const tokenList=(v.tokens&&v.tokens.length)?v.tokens:(v.text.match(/\S+/g)||[]).map(t=>({t,s:''}));
   const english=[], original=[], links={};
@@ -42,13 +53,14 @@ function verseToPassage(v, maculaWords){
     tokenList.forEach((tok,i)=>{ if(tok.s) (strongToEnglish[String(Number(tok.s))] ||= []).push('e'+i); });
     maculaWords.forEach((w,i)=>{
       const oid='o'+i;
+      const tr=isOT(v)?(w.tr||''):greekToLatin(w.t||'');
       const parts=[];
       if(w.g) parts.push('Meaning: '+w.g);
-      if(w.tr) parts.push('Transliteration: '+w.tr);
+      if(tr) parts.push('Transliteration: '+tr);
       if(w.l) parts.push('Lemma: '+w.l);
       if(w.s) parts.push('Strong: '+(isOT(v)?'H':'G')+w.s);
       if(w.m) parts.push('Morphology: '+w.m);
-      original.push([oid, w.t || '', parts.join(' | '), w.tr || '']);
+      original.push([oid, w.t || '', parts.join(' | '), tr]);
       const eids=strongToEnglish[String(Number(w.s))] || [];
       eids.forEach(eid=>{ links[eid]=(links[eid]||[]).concat(oid); links[oid]=(links[oid]||[]).concat(eid); });
     });
@@ -67,7 +79,7 @@ function verseToPassage(v, maculaWords){
   }
   return {ref:v.ref, lang:isOT(v)?'hebrew':'greek', english, original, links, note:maculaWords?'Original-language words from MACULA Hebrew/Greek. English links use per-word Strong tags from the ASV source; untagged function words use an approximate nearby-word fallback.':'No MACULA original-language word file loaded for this verse yet.'};
 }
-function render(p){$('gloss').classList.remove('show'); current=p; $('engRef').textContent=p.ref; $('origRef').textContent=p.ref+' - '+(p.lang==='hebrew'?'Hebrew/OT':'Greek/NT'); $('original').className='verse '+(p.lang==='hebrew'?'hebrew':'greek'); $('english').innerHTML=p.english.map(([id,t])=>`<span class="w" data-id="${esc(id)}">${esc(t)}</span>`).join(' '); $('original').innerHTML=p.original.map(([id,t,g,tr])=>{const body=tr?`<span class="orig-token"><span class="script">${esc(t)}</span><span class="translit">${esc(tr)}</span></span>`:esc(t); return `<span class="w" data-id="${esc(id)}" data-gloss="${esc(g||'')}">${body}</span>`;}).join(' '); document.querySelectorAll('.w').forEach(el=>el.onclick=()=>selectWord(el.dataset.id));}
+function render(p){$('gloss').classList.remove('show'); current=p; $('engRef').textContent=p.ref; $('origRef').textContent=p.ref+' - '+(p.lang==='hebrew'?'Hebrew/OT':'Greek/NT'); $('original').className='verse '+(p.lang==='hebrew'?'hebrew':'greek'); $('english').innerHTML=p.english.map(([id,t])=>`<span class="w" data-id="${esc(id)}">${esc(t)}</span>`).join(' '); $('original').innerHTML=p.original.map(([id,t,g,tr])=>{const body=tr?`<span class="orig-token"><span class="script">${esc(t)}</span><span class="translit">${esc(tr)}</span></span>`:esc(t); return `<span class="w" data-id="${esc(id)}" data-script="${esc(t||'')}" data-translit="${esc(tr||'')}" data-gloss="${esc(g||'')}">${body}</span>`;}).join(' '); document.querySelectorAll('.w').forEach(el=>el.onclick=()=>selectWord(el.dataset.id));}
 function byId(id){return document.querySelector('[data-id="'+String(id).replace(/"/g,'\\"')+'"]')}
 function selectWord(id){
   const p=current, linked=new Set([id,...((p.links&&p.links[id])||[])]);
@@ -80,10 +92,11 @@ function selectWord(id){
   const originals=(originalLinked.length?originalLinked:(isOrig(el)?[el]:[]));
   const meaningRows=originals.map(e=>{
     const desc=e.dataset.gloss||'No meaning/gloss available for this original word.';
-    return `<div class="meaning"><b>${esc(e.textContent)}</b><br>${esc(desc)}</div>`;
+    const label=e.dataset.script||e.textContent; return `<div class="meaning"><b>${esc(label)}</b><br>${esc(desc)}</div>`;
   }).join('') || '<div class="meaning">No linked original-language meaning found for this word.</div>';
   const linkedText=linkedEls.map(e=>e.textContent).filter(Boolean).join(', ');
-  const html=`<div class="head">${esc(el?.textContent||id)}</div><div class="small">Original-language meaning:</div>${meaningRows}<div class="small">Linked: ${esc(linkedText||'none')}</div>`;
+  const headLabel=(el&&(el.dataset.script||el.textContent))||id;
+  const html=`<div class="head">${esc(headLabel)}</div><div class="small">Original-language meaning:</div>${meaningRows}<div class="small">Linked: ${esc(linkedText||'none')}</div>`;
   $('wordInfo').innerHTML=html;
   $('wordInfo').classList.add('show');
   $('gloss').innerHTML=html+`<div class="small">${esc(p.note||'')}</div>`;
