@@ -55,14 +55,54 @@ function render(p){$('gloss').classList.remove('show'); current=p; $('engRef').t
 function byId(id){return document.querySelector('[data-id="'+String(id).replace(/"/g,'\\"')+'"]')}
 function selectWord(id){const p=current, linked=new Set([id,...((p.links&&p.links[id])||[])]); for(const [k,a] of Object.entries(p.links||{})) if(a.includes(id)) linked.add(k); document.querySelectorAll('.w').forEach(el=>{el.classList.toggle('active',el.dataset.id===id);el.classList.toggle('linked',linked.has(el.dataset.id)&&el.dataset.id!==id)}); const el=byId(id), mates=[...linked].filter(x=>x!==id).map(x=>byId(x)?.textContent).filter(Boolean).join(', '); $('gloss').innerHTML=`<b>${esc(el?.textContent||id)}</b>${el?.dataset.gloss?`<div>${esc(el.dataset.gloss)}</div>`:''}<div class="small">Linked: ${esc(mates||'none')}</div><div class="small">${esc(p.note||'')}</div>`; $('gloss').classList.add('show')}
 function slugBook(book){return book.toLowerCase().replace(/ /g,'-')}
-async function loadOriginalBook(book){if(originalCache[book]) return originalCache[book]; const meta=originalIndex.get(book); if(!meta) return null; const res=await fetch('data/'+meta.file+'?v=macula1'); if(!res.ok) throw new Error(res.status+' '+res.statusText); const data=await res.json(); originalCache[book]=data; return data;}
-async function go(ref, sync=true){ref=normRef(ref); const v=byRef.get(ref.toLowerCase()); if(!v){$('status').textContent='Reference not found: '+ref; return;} $('refInput').value=v.ref; if(sync) syncSelectors(v); render(verseToPassage(v,null)); $('status').textContent='Loading original-language data for '+v.ref+'?'; try{const bookData=await loadOriginalBook(v.book); const maculaWords=bookData&&bookData.verses[`${v.c}:${v.v}`]; render(verseToPassage(v,maculaWords)); $('status').textContent='Showing '+v.ref+(maculaWords?' with MACULA original-language words.':' without MACULA original-language words.');}catch(err){$('status').textContent='Showing '+v.ref+'; original-language load failed: '+err.message;}}
+function sleep(ms){return new Promise(resolve=>setTimeout(resolve,ms));}
+async function fetchJsonRetry(urls, tries=3){let lastErr=null; for(const url of urls){for(let i=0;i<tries;i++){try{const res=await fetch(url+(url.includes('?')?'&':'?')+'cacheBust=' + Date.now(), {cache:'no-store'}); if(!res.ok) throw new Error(res.status+' '+res.statusText); return await res.json();}catch(err){lastErr=err; await sleep(450*(i+1));}}} throw lastErr || new Error('fetch failed');}
+async function loadOriginalBook(book){
+  if(originalCache[book]) return originalCache[book];
+  const meta=originalIndex.get(book);
+  if(!meta) throw new Error('No MACULA index entry for '+book);
+  const local='data/'+meta.file;
+  const raw='https://raw.githubusercontent.com/akingry/study-bible-original-languages/master/data/'+meta.file;
+  const data=await fetchJsonRetry([local, raw], 3);
+  originalCache[book]=data;
+  return data;
+}
+async function go(ref, sync=true){
+  ref=normRef(ref);
+  const v=byRef.get(ref.toLowerCase());
+  if(!v){$('status').textContent='Reference not found: '+ref; return;}
+  $('refInput').value=v.ref;
+  if(sync) syncSelectors(v);
+  render(verseToPassage(v,null));
+  $('status').textContent='Loading MACULA original-language words for '+v.ref+'?';
+  try{
+    const bookData=await loadOriginalBook(v.book);
+    const maculaWords=bookData&&bookData.verses[`${v.c}:${v.v}`];
+    if(!maculaWords || !maculaWords.length) throw new Error('No MACULA verse entry for '+v.ref);
+    render(verseToPassage(v,maculaWords));
+    $('status').textContent='Showing '+v.ref+' with MACULA original-language words.';
+  }catch(err){
+    $('original').innerHTML='<span class="w active">Original-language data failed to load. Tap Go to retry.</span>';
+    $('status').textContent='Original-language load failed for '+v.ref+': '+err.message+'. Tap Go to retry.';
+  }
+}
 function populateSelectors(){const books=[]; const seen=new Set(); for(const v of ASV){ if(!seen.has(v.book)){seen.add(v.book); books.push(v.book);} } $('bookSelect').innerHTML=books.map(b=>`<option value="${esc(b)}">${esc(b)}</option>`).join(''); $('bookSelect').onchange=()=>{populateChapters($('bookSelect').value);}; $('chapterSelect').onchange=()=>{populateVerses($('bookSelect').value, +$('chapterSelect').value);}; $('verseSelect').onchange=()=>go(`${$('bookSelect').value} ${$('chapterSelect').value}:${$('verseSelect').value}`, false); populateChapters('Genesis');}
 function populateChapters(book){const chapters=[...new Set(ASV.filter(v=>v.book===book).map(v=>v.c))]; $('chapterSelect').innerHTML=chapters.map(c=>`<option value="${c}">Chapter ${c}</option>`).join(''); populateVerses(book, chapters[0]);}
 function populateVerses(book, chapter){const verses=ASV.filter(v=>v.book===book && v.c===chapter).map(v=>v.v); $('verseSelect').innerHTML=verses.map(v=>`<option value="${v}">Verse ${v}</option>`).join(''); if(verses.length) go(`${book} ${chapter}:${verses[0]}`, false);}
 function syncSelectors(v){ if(!$('bookSelect').options.length) return; $('bookSelect').value=v.book; const currentChapter=$('chapterSelect').value; populateChapters(v.book); $('chapterSelect').value=String(v.c); populateVerses(v.book, v.c); $('verseSelect').value=String(v.v);}
 function search(){const q=$('searchInput').value.trim().toLowerCase(), box=$('results'); if(!q){box.style.display='none'; return;} const hits=ASV.filter(v=>v.text.toLowerCase().includes(q)||v.ref.toLowerCase().includes(q)).slice(0,100); box.innerHTML=hits.map(v=>`<button class="result" data-ref="${esc(v.ref)}"><b>${esc(v.ref)}</b> ${esc(v.text.slice(0,180))}</button>`).join('') || '<div class="note">No results.</div>'; box.style.display='block'; box.querySelectorAll('button').forEach(b=>b.onclick=()=>{box.style.display='none'; go(b.dataset.ref)}); $('status').textContent=`${hits.length}${hits.length===100?'+':''} result(s) for “${q}”.`;}
-async function init(){const [asvRes,origRes]=await Promise.all([fetch('data/asv.json?v=1'),fetch('data/original-index.json?v=macula1')]); if(!asvRes.ok) throw new Error(asvRes.status+' '+asvRes.statusText); const data=await asvRes.json(); ASV=data.verses; byRef=new Map(ASV.map(v=>[v.ref.toLowerCase(),v])); if(origRes.ok){const idx=await origRes.json(); originalIndex=new Map(idx.map(x=>[x.book,x]));} populateSelectors(); $('status').textContent='Loaded '+ASV.length.toLocaleString()+' ASV verses.'; go('Genesis 1:1');}
+async function init(){
+  const [asv, idx]=await Promise.all([
+    fetchJsonRetry(['data/asv.json','https://raw.githubusercontent.com/akingry/study-bible-original-languages/master/data/asv.json'],3),
+    fetchJsonRetry(['data/original-index.json','https://raw.githubusercontent.com/akingry/study-bible-original-languages/master/data/original-index.json'],3)
+  ]);
+  ASV=asv.verses;
+  byRef=new Map(ASV.map(v=>[v.ref.toLowerCase(),v]));
+  originalIndex=new Map(idx.map(x=>[x.book,x]));
+  populateSelectors();
+  $('status').textContent='Loaded '+ASV.length.toLocaleString()+' ASV verses and '+idx.length+' original-language books.';
+  go('Genesis 1:1');
+}
 $('loadBtn').onclick=()=>go($('refInput').value); $('refInput').addEventListener('keydown',e=>{if(e.key==='Enter')go($('refInput').value)}); $('searchBtn').onclick=search; $('searchInput').addEventListener('keydown',e=>{if(e.key==='Enter')search()}); $('clearBtn').onclick=()=>{$('searchInput').value='';$('results').style.display='none'}; init().catch(err=>$('status').textContent='Load failed: '+err.message);
 </script>
 </body>
