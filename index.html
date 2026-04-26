@@ -47,7 +47,7 @@ function verseToPassage(v, maculaWords){
     maculaWords.forEach((w,i)=>{
       const oid='o'+i;
       const parts=[];
-      if(w.g) parts.push('Gloss: '+w.g);
+      if(w.g) parts.push('Meaning: '+w.g);
       if(w.tr) parts.push('Transliteration: '+w.tr);
       if(w.l) parts.push('Lemma: '+w.l);
       if(w.s) parts.push('Strong: '+(isOT(v)?'H':'G')+w.s);
@@ -74,7 +74,22 @@ function verseToPassage(v, maculaWords){
 }
 function render(p){$('gloss').classList.remove('show'); current=p; $('engRef').textContent=p.ref; $('origRef').textContent=p.ref+' · '+(p.lang==='hebrew'?'Hebrew/OT':'Greek/NT'); $('original').className='verse '+(p.lang==='hebrew'?'hebrew':'greek'); $('english').innerHTML=p.english.map(([id,t])=>`<span class="w" data-id="${esc(id)}">${esc(t)}</span>`).join(' '); $('original').innerHTML=p.original.map(([id,t,g])=>`<span class="w" data-id="${esc(id)}" data-gloss="${esc(g||'')}">${esc(t)}</span>`).join(' '); document.querySelectorAll('.w').forEach(el=>el.onclick=()=>selectWord(el.dataset.id));}
 function byId(id){return document.querySelector('[data-id="'+String(id).replace(/"/g,'\\"')+'"]')}
-function selectWord(id){const p=current, linked=new Set([id,...((p.links&&p.links[id])||[])]); for(const [k,a] of Object.entries(p.links||{})) if(a.includes(id)) linked.add(k); document.querySelectorAll('.w').forEach(el=>{el.classList.toggle('active',el.dataset.id===id);el.classList.toggle('linked',linked.has(el.dataset.id)&&el.dataset.id!==id)}); const el=byId(id), mates=[...linked].filter(x=>x!==id).map(x=>byId(x)?.textContent).filter(Boolean).join(', '); $('gloss').innerHTML=`<b>${esc(el?.textContent||id)}</b>${el?.dataset.gloss?`<div>${esc(el.dataset.gloss)}</div>`:''}<div class="small">Linked: ${esc(mates||'none')}</div><div class="small">${esc(p.note||'')}</div>`; $('gloss').classList.add('show')}
+function selectWord(id){
+  const p=current, linked=new Set([id,...((p.links&&p.links[id])||[])]);
+  for(const [k,a] of Object.entries(p.links||{})) if(a.includes(id)) linked.add(k);
+  document.querySelectorAll('.w').forEach(el=>{el.classList.toggle('active',el.dataset.id===id);el.classList.toggle('linked',linked.has(el.dataset.id)&&el.dataset.id!==id)});
+  const el=byId(id);
+  const linkedEls=[...linked].filter(x=>x!==id).map(x=>byId(x)).filter(Boolean);
+  const originalLinked=linkedEls.filter(e=>e.dataset.id && (e.dataset.id.startsWith('o') || e.dataset.id.startsWith('h') || e.dataset.id.startsWith('g') || e.dataset.id.startsWith('s')));
+  const otherLinked=linkedEls.filter(e=>!originalLinked.includes(e));
+  const meaningRows=(originalLinked.length?originalLinked:[el]).filter(Boolean).map(e=>{
+    const desc=e.dataset.gloss||'';
+    return `<div><b>${esc(e.textContent)}</b>${desc?` ? ${esc(desc)}`:''}</div>`;
+  }).join('');
+  const linkedText=linkedEls.map(e=>e.textContent).filter(Boolean).join(', ');
+  $('gloss').innerHTML=`<b>${esc(el?.textContent||id)}</b>${meaningRows?`<div class="small">Original-language meaning:</div>${meaningRows}`:''}<div class="small">Linked: ${esc(linkedText||'none')}</div><div class="small">${esc(p.note||'')}</div>`;
+  $('gloss').classList.add('show');
+}
 function slugBook(book){return book.toLowerCase().replace(/ /g,'-')}
 function sleep(ms){return new Promise(resolve=>setTimeout(resolve,ms));}
 async function fetchJsonRetry(urls, tries=3){let lastErr=null; for(const url of urls){for(let i=0;i<tries;i++){try{const res=await fetch(url+(url.includes('?')?'&':'?')+'cacheBust=' + Date.now(), {cache:'no-store'}); if(!res.ok) throw new Error(res.status+' '+res.statusText); return await res.json();}catch(err){lastErr=err; await sleep(450*(i+1));}}} throw lastErr || new Error('fetch failed');}
